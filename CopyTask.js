@@ -2,6 +2,23 @@
 
 (() => {
   const BUTTON_CLASS = 'btn-copiar-task';
+  const TITLE_SELECTOR = [
+    '[placeholder="Enter title"]',
+    '[placeholder="Digite o título"]',
+    'input[aria-label="Title"]',
+    'input[aria-label="Título"]',
+    'textarea[aria-label="Title"]',
+    'textarea[aria-label="Título"]',
+    'input[aria-label*="title" i]',
+    'input[aria-label*="título" i]',
+    'textarea[aria-label*="title" i]',
+    'textarea[aria-label*="título" i]',
+    '[contenteditable="true"][aria-label*="title" i]',
+    '[contenteditable="true"][aria-label*="título" i]',
+    '.work-item-title input',
+    '.work-item-title textarea',
+    '.work-item-title [contenteditable="true"]',
+  ].join(',');
 
   let timeoutInstalacao = 0;
 
@@ -19,25 +36,72 @@
   }
 
   function agendarInstalacao() {
-    window.clearTimeout(timeoutInstalacao);
+    if (timeoutInstalacao) return;
 
     timeoutInstalacao = window.setTimeout(() => {
+      timeoutInstalacao = 0;
       adicionarBotao();
     }, 100);
   }
 
   function adicionarBotao() {
-    const dialog = document.querySelector('[role="dialog"]');
+    if (!obterNumeroWorkItem()) return;
 
-    if (!dialog) return;
+    for (const contexto of localizarContextosWorkItem()) {
+      instalarBotao(contexto);
+    }
+  }
 
-    const title = dialog.querySelector('[placeholder="Enter title"]');
-    const menubar = dialog.querySelector(
-      '[role="menubar"] .work-item-header-command-bar',
+  function localizarContextosWorkItem() {
+    const barrasEspecificas = Array.from(
+      document.querySelectorAll('.work-item-header-command-bar'),
     );
+    const barrasFallback = Array.from(
+      document.querySelectorAll('[role="menubar"], [role="toolbar"]'),
+    ).filter((barra) => {
+      return Array.from(barra.querySelectorAll('button')).some((button) => {
+        const descricao = [
+          button.getAttribute('aria-label'),
+          button.getAttribute('title'),
+          button.textContent,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
 
-    if (!(title instanceof HTMLInputElement) || !menubar) return;
+        return /^(save|salvar)\b/i.test(descricao);
+      });
+    });
+    const barras = [...new Set([...barrasEspecificas, ...barrasFallback])];
 
+    return barras
+      .map((menubar) => {
+        const raizes = [
+          menubar.closest('[role="dialog"]'),
+          menubar.closest('.work-item-form'),
+          menubar.closest('.work-item-view'),
+          menubar.closest('.work-item-page'),
+          document,
+        ].filter(Boolean);
+
+        for (const raiz of raizes) {
+          const title = raiz.querySelector(TITLE_SELECTOR);
+
+          if (title instanceof HTMLElement) {
+            return {
+              raiz,
+              title,
+              menubar,
+            };
+          }
+        }
+
+        return null;
+      })
+      .filter(Boolean);
+  }
+
+  function instalarBotao({ raiz, title, menubar }) {
     if (menubar.querySelector(`.${BUTTON_CLASS}`)) return;
 
     const button = document.createElement('button');
@@ -71,8 +135,8 @@
       event.preventDefault();
       event.stopPropagation();
 
-      const titulo = title.value.trim();
-      const tags = obterTags(dialog);
+      const titulo = obterTitulo(title);
+      const tags = obterTags(raiz);
 
       if (tags.length === 0) {
         alert(
@@ -91,7 +155,7 @@
         return;
       }
 
-      const tipo = obterTipoAzure(titulo, dialog);
+      const tipo = obterTipoAzure(titulo, raiz);
       const tagsSanitizadas = tags
         .sort((a, b) => a.localeCompare(b, 'pt-BR'))
         .map((tag) => sanitizar(tag))
@@ -111,6 +175,17 @@
     });
 
     menubar.prepend(button);
+  }
+
+  function obterTitulo(elemento) {
+    if (
+      elemento instanceof HTMLInputElement ||
+      elemento instanceof HTMLTextAreaElement
+    ) {
+      return elemento.value.trim();
+    }
+
+    return (elemento.textContent || '').trim();
   }
 
   function obterTipoAzure(titulo, dialog) {

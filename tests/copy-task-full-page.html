@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <title>Copy Task full-page fixture</title>
+  </head>
+  <body>
+    <main class="work-item-form">
+      <div role="menubar">
+        <div class="work-item-header-command-bar">
+          <button type="button">Save</button>
+        </div>
+      </div>
+
+      <input
+        class="work-item-title"
+        placeholder="Enter title"
+        value="Corrigir validação da task"
+      >
+
+      <div class="work-item-tag-picker">
+        Backend
+        API
+      </div>
+    </main>
+
+    <script>
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          writeText(value) {
+            document.body.dataset.copied = value;
+            return Promise.resolve();
+          },
+        },
+      });
+    </script>
+    <script src="/CopyTask.js"></script>
+  </body>
+</html>
