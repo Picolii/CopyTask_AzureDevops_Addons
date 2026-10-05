@@ -72,7 +72,24 @@
         return /^(save|salvar)\b/i.test(descricao);
       });
     });
-    const barras = [...new Set([...barrasEspecificas, ...barrasFallback])];
+    const candidatas = [...new Set([...barrasEspecificas, ...barrasFallback])];
+    // Um menubar pode envolver a barra específica. Instale somente na
+    // barra mais interna para não criar um botão em cada nível do DOM.
+    const barras = candidatas.filter((barra) => {
+      return !candidatas.some((outra) => outra !== barra && barra.contains(outra));
+    });
+
+    for (const barra of barras) {
+      let grupo = barra;
+
+      for (const candidata of candidatas) {
+        if (candidata.contains(grupo)) grupo = candidata;
+      }
+
+      for (const button of grupo.querySelectorAll(`.${BUTTON_CLASS}`)) {
+        if (!barra.contains(button)) button.remove();
+      }
+    }
 
     return barras
       .map((menubar) => {
@@ -102,7 +119,11 @@
   }
 
   function instalarBotao({ raiz, title, menubar }) {
-    if (menubar.querySelector(`.${BUTTON_CLASS}`)) return;
+    const existentes = Array.from(menubar.querySelectorAll(`.${BUTTON_CLASS}`));
+
+    for (const duplicado of existentes.slice(1)) duplicado.remove();
+
+    if (existentes.length) return;
 
     const button = document.createElement('button');
 
